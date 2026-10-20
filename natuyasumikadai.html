@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>夏休み課題 — ノート分析・学習支援</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh}
+header{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+header .logo{font-size:1.5rem}
+header .title{font-weight:700;font-size:1.1rem}
+main{max-width:640px;margin:0 auto;padding:24px 16px}
+.screen{display:none}.screen.active{display:block}
+section{margin-bottom:20px}
+h2{font-size:1rem;font-weight:700;margin-bottom:12px}
+
+/* APIキー画面 */
+#screen-apikey{background:#fff;border-radius:16px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-top:32px}
+#screen-apikey h1{font-size:1.3rem;font-weight:700;margin-bottom:8px}
+.apikey-input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:1rem;outline:none;margin:12px 0}
+.apikey-input:focus{border-color:#818cf8}
+.apikey-note{font-size:.8rem;color:#64748b;margin-bottom:16px;line-height:1.6}
+.apikey-link{color:#4f46e5;text-decoration:underline}
+
+/* 科目ボタン */
+.subject-btns{display:flex;flex-wrap:wrap;gap:8px}
+.subj-btn{padding:12px 20px;border-radius:12px;font-weight:700;font-size:1rem;border:2px solid;cursor:pointer;background:#fff;transition:all .15s;min-width:72px}
+.subj-btn.active{color:#fff;transform:scale(1.05);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.subj-btn[data-s="国語"]{color:#ea580c;border-color:#fb923c}
+.subj-btn[data-s="数学"]{color:#2563eb;border-color:#60a5fa}
+.subj-btn[data-s="英語"]{color:#16a34a;border-color:#4ade80}
+.subj-btn[data-s="理科"]{color:#7c3aed;border-color:#a78bfa}
+.subj-btn[data-s="社会"]{color:#ca8a04;border-color:#facc15}
+.subj-btn[data-s="国語"].active{background:#ea580c;border-color:#ea580c}
+.subj-btn[data-s="数学"].active{background:#2563eb;border-color:#2563eb}
+.subj-btn[data-s="英語"].active{background:#16a34a;border-color:#16a34a}
+.subj-btn[data-s="理科"].active{background:#7c3aed;border-color:#7c3aed}
+.subj-btn[data-s="社会"].active{background:#ca8a04;border-color:#ca8a04}
+
+/* 画像 */
+.upload-area{width:100%;padding:28px;border:2px dashed #cbd5e1;border-radius:12px;text-align:center;cursor:pointer;color:#64748b;font-size:1rem;transition:all .15s}
+.upload-area:hover{border-color:#94a3b8;background:#f1f5f9}
+.thumb-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.thumb-wrap{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:16/9;background:#e2e8f0;border:1px solid #e2e8f0}
+.thumb-wrap img{width:100%;height:100%;object-fit:cover}
+.thumb-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:.8rem}
+
+/* ボタン */
+.btn-primary{width:100%;padding:16px;border-radius:12px;font-weight:700;font-size:1.1rem;background:#4f46e5;color:#fff;border:none;cursor:pointer;transition:background .15s;box-shadow:0 2px 8px rgba(0,0,0,.1);margin-bottom:0}
+.btn-primary:hover:not(:disabled){background:#4338ca}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{width:100%;padding:14px;border-radius:12px;font-weight:700;font-size:1rem;background:#f1f5f9;color:#475569;border:none;cursor:pointer}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-sm{padding:8px 16px;border-radius:8px;font-weight:700;font-size:.875rem;border:none;cursor:pointer}
+.space-y>*+*{margin-top:16px}
+
+/* エラー */
+.error-box{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;border-radius:12px;padding:16px;display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
+.retry-link{margin-top:6px;font-size:.85rem;text-decoration:underline;cursor:pointer;display:block}
+
+/* カード */
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;margin-bottom:12px}
+
+/* badge */
+.badge{display:inline-block;padding:2px 10px;border-radius:9999px;font-size:.75rem;font-weight:700}
+
+/* keypoint */
+.kp-term{font-weight:700;font-size:1rem;border:none;border-bottom:1px solid #e2e8f0;outline:none;width:100%;padding:4px 0;background:transparent;margin-bottom:8px}
+.kp-exp{width:100%;border:none;border-bottom:1px solid #e2e8f0;outline:none;font-size:.9rem;color:#475569;resize:none;background:transparent;padding:4px 0}
+.lbtn{padding:4px 10px;border-radius:9999px;font-size:.75rem;font-weight:700;border:1px solid;cursor:pointer;background:#f8fafc}
+.lbtn[data-l="高"]{color:#dc2626;border-color:#fca5a5}.lbtn[data-l="中"]{color:#ca8a04;border-color:#fde047}.lbtn[data-l="低"]{color:#64748b;border-color:#cbd5e1}
+.lbtn.active[data-l="高"]{background:#fee2e2}.lbtn.active[data-l="中"]{background:#fef9c3}.lbtn.active[data-l="低"]{background:#f1f5f9}
+
+/* 進捗 */
+.progress-bar{width:100%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-bottom:16px}
+.progress-fill{height:100%;border-radius:4px;transition:width .3s}
+
+/* 選択肢 */
+.choice-btn{width:100%;padding:16px;border-radius:12px;text-align:left;font-size:1rem;font-weight:500;border:2px solid #e2e8f0;background:#fff;cursor:pointer;transition:all .15s;margin-bottom:8px;display:block}
+.choice-btn:hover:not(:disabled){border-color:#818cf8;background:#eef2ff}
+.choice-btn.correct{background:#f0fdf4;border-color:#4ade80;color:#15803d}
+.choice-btn.wrong{background:#fef2f2;border-color:#f87171;color:#dc2626}
+.choice-btn.missed{background:#f8fafc;border-color:#e2e8f0;color:#94a3b8}
+
+/* 解説 */
+.explanation{padding:16px;border-radius:12px;margin-top:8px}
+.explanation.correct{background:#f0fdf4;border:1px solid #86efac}
+.explanation.wrong{background:#fef2f2;border:1px solid #fca5a5}
+
+/* 入力 */
+.answer-input{width:100%;border:1px solid #cbd5e1;border-radius:12px;padding:12px;font-size:1rem;outline:none;resize:none}
+.answer-input:focus{border-color:#818cf8}
+
+/* 結果 */
+.result-score{text-align:center;padding:32px;border-radius:16px}
+.score-num{font-size:3.5rem;font-weight:900;line-height:1}
+
+/* 過去セット */
+.noteset-item{background:#fff;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;border:2px solid #e2e8f0;margin-bottom:10px}
+@media(min-width:480px){.noteset-item{flex-direction:row;align-items:center}}
+
+/* ローディング */
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px}
+.loading-overlay .spinner-big{width:52px;height:52px;border:5px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin .8s linear infinite}
+.loading-overlay p{font-size:1rem;font-weight:600;color:#475569}
+.loading-overlay small{font-size:.8rem;color:#94a3b8}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 注意書き */
+.caution{font-size:.75rem;color:#94a3b8;border:1px solid #e2e8f0;border-radius:8px;padding:12px;background:#fff}
+</style>
+</head>
+<body>
+<header><span class="logo">📚</span><span class="title">ノート分析・学習支援</span></header>
+
+<!-- ローディング -->
+<div class="loading-overlay" id="loadingOverlay" style="display:none">
+  <div class="spinner-big"></div>
+  <p id="loadingMsg">処理中です…</p>
+  <small>数十秒かかる場合があります</small>
+</div>
+
+<main>
+
+<!-- APIキー設定画面 -->
+<div id="screen-apikey" class="screen active">
+  <h1>🔑 APIキーを入力</h1>
+  <p style="color:#64748b;font-size:.9rem;margin:8px 0 16px">ノートを実際に分析するためにGoogle Gemini APIキーが必要です。</p>
+  <input type="password" class="apikey-input" id="apikeyInput" placeholder="AIza... のキーを貼り付け">
+  <p class="apikey-note">
+    ・キーはこのブラウザにのみ保存され、外部には送信されません。<br>
+    ・キーをお持ちでない場合は <a class="apikey-link" href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a> で無料取得できます。
+  </p>
+  <button class="btn-primary" onclick="saveApiKey()">決定してはじめる</button>
+</div>
+
+<!-- ホーム画面 -->
+<div id="screen-home" class="screen space-y">
+  <section>
+    <h2>① 科目を選ぶ</h2>
+    <div class="subject-btns">
+      <button class="subj-btn" data-s="国語">国語</button>
+      <button class="subj-btn" data-s="数学">数学</button>
+      <button class="subj-btn" data-s="英語">英語</button>
+      <button class="subj-btn" data-s="理科">理科</button>
+      <button class="subj-btn" data-s="社会">社会</button>
+    </div>
+  </section>
+  <section>
+    <h2>② ノートの写真を選ぶ（最大4枚）</h2>
+    <input type="file" id="fileInput" accept="image/*" capture="environment" multiple style="display:none">
+    <div class="upload-area" id="uploadArea">📷 写真を選択 / カメラで撮影</div>
+    <div class="thumb-grid" id="thumbGrid"></div>
+  </section>
+  <div id="homeError" class="error-box" style="display:none">
+    ⚠️ <div><span id="homeErrorMsg"></span><span class="retry-link" onclick="doAnalyze()">再試行</span></div>
+  </div>
+  <button class="btn-primary" id="analyzeBtn" disabled>📖 分析する</button>
+  <div style="text-align:right"><button onclick="showApiKeyScreen()" style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#94a3b8">🔑 APIキーを変更</button></div>
+  <section id="pastSection" style="display:none">
+    <h2>過去の学習セット</h2>
+    <div id="pastList"></div>
+  </section>
+</div>
+
+<!-- 分析結果画面 -->
+<div id="screen-analysis" class="screen space-y">
+  <div id="analysisHeader" class="card" style="border-width:2px"></div>
+  <p class="caution">※出題可能性はAIの推測であり、実際の試験を予測するものではありません</p>
+  <section>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="margin:0">重要ポイント</h2>
+      <button onclick="addKP()" style="padding:6px 14px;border-radius:8px;background:#f1f5f9;border:none;cursor:pointer;font-weight:700;font-size:.9rem">＋ 追加</button>
+    </div>
+    <div id="kpList"></div>
+  </section>
+  <section id="formulasSection" style="display:none">
+    <h2>公式・重要表現</h2>
+    <div id="formulasList" class="card" style="font-family:monospace;font-size:.9rem;line-height:2.2"></div>
+  </section>
+  <div id="analysisError" class="error-box" style="display:none">
+    ⚠️ <div><span id="analysisErrorMsg"></span><span class="retry-link" onclick="doGenerate()">再試行</span></div>
+  </div>
+  <button class="btn-primary" id="generateBtn">✏️ この内容で問題を作る</button>
+  <button class="btn-secondary" onclick="showScreen('home');renderPastSets()">← ホームに戻る</button>
+</div>
+
+<!-- テスト画面 -->
+<div id="screen-test" class="screen space-y">
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span id="qProgress" style="font-size:.8rem;color:#64748b"></span>
+      <span id="qTypeBadge" class="badge"></span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+  <div class="card"><p id="questionText" style="font-size:1rem;font-weight:600;line-height:1.7;white-space:pre-wrap"></p></div>
+  <div id="choicesArea"></div>
+  <div id="inputArea" style="display:none">
+    <textarea class="answer-input" id="answerInput" rows="3" placeholder="解答を入力してください"></textarea>
+    <button class="btn-primary" style="margin-top:8px" onclick="showModelAnswer()">答えを見る</button>
+  </div>
+  <div id="modelAnswerArea" style="display:none">
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:16px;margin-bottom:8px">
+      <p style="font-size:.75rem;font-weight:700;color:#15803d;margin-bottom:4px">模範解答</p>
+      <p id="modelAnswerText" style="font-weight:600;white-space:pre-wrap"></p>
+    </div>
+    <div id="userAnswerBox" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:12px;display:none">
+      <p style="font-size:.75rem;color:#64748b;margin-bottom:4px">あなたの解答</p>
+      <p id="userAnswerText" style="font-size:.9rem;white-space:pre-wrap"></p>
+    </div>
+    <p style="text-align:center;font-weight:700;margin-bottom:10px">正解でしたか？</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn-primary" style="background:#16a34a" onclick="selfJudge(true)">○ 正解</button>
+      <button class="btn-primary" style="background:#dc2626" onclick="selfJudge(false)">× 不正解</button>
+    </div>
+  </div>
+  <div id="judgeBox" style="display:none" class="explanation"></div>
+  <button class="btn-primary" id="nextBtn" style="display:none" onclick="nextQuestion()">次の問題へ →</button>
+</div>
+
+<!-- 結果画面 -->
+<div id="screen-result" class="screen space-y">
+  <div class="result-score card" id="resultScoreBox"></div>
+  <div id="wrongListSection" style="display:none">
+    <h2 style="margin-bottom:12px">間違えた問題</h2>
+    <div id="wrongList" class="space-y"></div>
+  </div>
+  <button class="btn-primary" id="retryBtn" style="background:#dc2626;display:none" onclick="startRetry()">🔁 間違えた問題だけ再挑戦</button>
+  <button class="btn-secondary" onclick="showScreen('home');renderPastSets()">ホームに戻る</button>
+</div>
+
+</main>
+<script>
+
+// ===== 定数 =====
+const STORAGE_KEY = "note-sets-v2";
+const APIKEY_KEY  = "gemini-api-key";
+const GEMINI_URL  = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
+
+const SUBJECT_COLORS = {
+  国語:{bg:"#ea580c",light:"#fff7ed",badge:"#ffedd5",badgeText:"#9a3412",border:"#fb923c"},
+  数学:{bg:"#2563eb",light:"#eff6ff",badge:"#dbeafe",badgeText:"#1e40af",border:"#60a5fa"},
+  英語:{bg:"#16a34a",light:"#f0fdf4",badge:"#dcfce7",badgeText:"#166534",border:"#4ade80"},
+  理科:{bg:"#7c3aed",light:"#f5f3ff",badge:"#ede9fe",badgeText:"#5b21b6",border:"#a78bfa"},
+  社会:{bg:"#ca8a04",light:"#fefce8",badge:"#fef9c3",badgeText:"#854d0e",border:"#facc15"}
+};
+
+// ===== 状態 =====
+let state = {
+  subject: null, previews: [],
+  analysis: null, questions: [],
+  answers: [], activeIndices: [], activeCurrent: 0,
+  curUserAnswer: ""
+};
+
+// ===== 画面 =====
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function showLoading(msg) {
+  document.getElementById('loadingMsg').textContent = msg;
+  document.getElementById('loadingOverlay').style.display = 'flex';
+}
+function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+
+// ===== APIキー =====
+function saveApiKey() {
+  const key = document.getElementById('apikeyInput').value.trim();
+  if (!key) { alert('APIキーを入力してください'); return; }
+  localStorage.setItem(APIKEY_KEY, key);
+  showScreen('home');
+  renderPastSets();
+}
+function showApiKeyScreen() {
+  const k = localStorage.getItem(APIKEY_KEY) || '';
+  document.getElementById('apikeyInput').value = k;
+  showScreen('apikey');
+}
+// 起動時チェック
+(function() {
+  if (localStorage.getItem(APIKEY_KEY)) { showScreen('home'); renderPastSets(); }
+})();
+
+// ===== 科目ボタン =====
+document.querySelectorAll('.subj-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.subj-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.subject = btn.dataset.s;
+    updateAnalyzeBtn();
+  });
+});
+
+// ===== 画像 =====
+document.getElementById('uploadArea').addEventListener('click', () => {
+  if (state.previews.length < 4) document.getElementById('fileInput').click();
+});
+document.getElementById('fileInput').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []).slice(0, 4 - state.previews.length);
+  for (const f of files) {
+    const b64 = await resizeImage(f);
+    state.previews.push({ file: f, url: URL.createObjectURL(f), b64 });
+  }
+  renderThumbs(); updateAnalyzeBtn();
+  e.target.value = '';
+});
+
+function resizeImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const max = 1568;
+      let w = img.width, h = img.height;
+      const long = Math.max(w, h);
+      if (long > max) { const s = max / long; w = Math.round(w * s); h = Math.round(h * s); }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function renderThumbs() {
+  const grid = document.getElementById('thumbGrid');
+  grid.innerHTML = '';
+  state.previews.forEach((p, i) => {
+    const wrap = document.createElement('div'); wrap.className = 'thumb-wrap';
+    const img = document.createElement('img'); img.src = p.url; img.alt = 'ノート画像';
+    const del = document.createElement('button'); del.className = 'thumb-del'; del.textContent = '✕';
+    del.onclick = () => { URL.revokeObjectURL(p.url); state.previews.splice(i, 1); renderThumbs(); updateAnalyzeBtn(); };
+    wrap.appendChild(img); wrap.appendChild(del); grid.appendChild(wrap);
+  });
+  document.getElementById('uploadArea').style.display = state.previews.length >= 4 ? 'none' : '';
+}
+function updateAnalyzeBtn() {
+  document.getElementById('analyzeBtn').disabled = !state.subject || state.previews.length === 0;
+}
+document.getElementById('analyzeBtn').addEventListener('click', doAnalyze);
+
+// ===== 分析 API =====
+async function doAnalyze() {
+  document.getElementById('homeError').style.display = 'none';
+  showLoading('ノートを分析中です…');
+  try {
+    const result = await callAnalyze();
+    state.analysis = result;
+    hideLoading();
+    renderAnalysisScreen();
+    showScreen('analysis');
+  } catch(e) {
+    hideLoading();
+    document.getElementById('homeErrorMsg').textContent = e.message;
+    document.getElementById('homeError').style.display = 'flex';
+  }
+}
+
+async function callAnalyze() {
+  const apiKey = localStorage.getItem(APIKEY_KEY);
+  const subjectInstructions = {
+    数学: "formulasには公式をプレーンテキストで列挙してください。",
+    理科: "formulasには公式をプレーンテキストで列挙してください。",
+    英語: "重要語句は英語表記＋日本語訳をexplanationに記述してください。formulasは空配列で構いません。",
+    国語: "漢字・語句・文法事項を優先してkeyPointsに含めてください。formulasは空配列で構いません。",
+    社会: "因果関係・年代をexplanationに含めてください。formulasは空配列で構いません。"
+  };
+  const prompt = `あなたは日本の中高生の学習を支援する教師です。
+添付の板書ノート画像を読み取り、以下のJSONスキーマに従って出力してください。
+前置き・コードフェンス禁止。JSONのみ出力。
+判読できない箇所は推測せずスキップ。examLikelihoodは定期テストで問われやすいかの推定です。
+
+科目: ${state.subject}
+${subjectInstructions[state.subject]}
+
+出力スキーマ:
+{
+  "subject": "${state.subject}",
+  "topic": "ノートのトピック名",
+  "summary": "全体の要約（2〜3文）",
+  "keyPoints": [
+    { "term": "用語・概念名", "explanation": "説明", "examLikelihood": "高"|"中"|"低" }
+  ],
+  "formulas": ["公式や重要表現"]
+}`;
+
+  const parts = [{ text: prompt }];
+  state.previews.forEach(p => {
+    parts.push({ inlineData: { mimeType: "image/jpeg", data: p.b64 } });
+  });
+
+  const res = await fetchGemini(apiKey, parts);
+  return parseJSON(res);
+}
+
+// ===== 問題生成 API =====
+async function doGenerate() {
+  document.getElementById('analysisError').style.display = 'none';
+  document.getElementById('generateBtn').disabled = true;
+  showLoading('問題を生成中です…');
+  try {
+    const qs = await callGenerate();
+    state.questions = qs;
+    hideLoading();
+    document.getElementById('generateBtn').disabled = false;
+    const ns = { id: genId(), createdAt: new Date().toISOString(), subject: state.subject, analysis: state.analysis, questions: qs };
+    savePastSet(ns);
+    startTest();
+  } catch(e) {
+    hideLoading();
+    document.getElementById('generateBtn').disabled = false;
+    document.getElementById('analysisErrorMsg').textContent = e.message;
+    document.getElementById('analysisError').style.display = 'flex';
+  }
+}
+document.getElementById('generateBtn').addEventListener('click', doGenerate);
+
+async function callGenerate() {
+  const apiKey = localStorage.getItem(APIKEY_KEY);
+  const subInst = {
+    数学: "数値を変えた類題を出題し、explanationには途中式を含めてください。",
+    英語: "穴埋め問題と和訳・英訳を混在させてください。",
+    国語: "語句の意味・漢字の読み書きを中心に出題してください。",
+    理科: "用語暗記と因果説明を半々で出題してください。",
+    社会: "用語暗記と因果説明を半々で出題してください。"
+  };
+  const prompt = `あなたは日本の中高生の学習を支援する教師です。
+以下の分析結果をもとに問題を作成し、JSON配列のみ出力してください。前置き・コードフェンス禁止。
+
+一問一答4問・選択式4問・記述2問の計10問。
+選択式のchoicesは4つ、誤答選択肢はもっともらしく。
+explanationは中高生向けに簡潔に。
+${subInst[state.subject]}
+
+出力スキーマ（配列）:
+[
+  {
+    "id": "q1",
+    "type": "一問一答"|"選択式"|"記述",
+    "question": "問題文",
+    "choices": ["選択肢1","選択肢2","選択肢3","選択肢4"],
+    "answer": "正解",
+    "explanation": "解説"
+  }
+]
+
+分析結果:
+${JSON.stringify(state.analysis, null, 2)}`;
+
+  const res = await fetchGemini(apiKey, [{ text: prompt }]);
+  return parseJSON(res);
+}
+
+// ===== Gemini 呼び出し =====
+async function fetchGemini(apiKey, parts) {
+  const body = { contents: [{ parts }] };
+  const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = err?.error?.message || `HTTPエラー ${res.status}`;
+    if (res.status === 400) throw new Error('APIキーが無効か、リクエストが不正です: ' + msg);
+    if (res.status === 429) throw new Error('リクエスト上限に達しました。しばらく待ってから再試行してください。');
+    throw new Error('APIエラー: ' + msg);
+  }
+  const data = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+function parseJSON(text) {
+  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  try { return JSON.parse(cleaned); }
+  catch { throw new Error('AIの応答を解析できませんでした。もう一度お試しください。'); }
+}
+
+function genId() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
+// ===== localStorage =====
+function loadPastSets() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+}
+function savePastSet(ns) {
+  const sets = loadPastSets().filter(s => s.id !== ns.id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([ns, ...sets]));
+}
+function deletePastSet(id) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(loadPastSets().filter(s => s.id !== id)));
+}
+
+function renderPastSets() {
+  const sets = loadPastSets();
+  const section = document.getElementById('pastSection');
+  const list = document.getElementById('pastList');
+  if (!sets.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  list.innerHTML = '';
+  sets.forEach(ns => {
+    const c = SUBJECT_COLORS[ns.subject];
+    const date = new Date(ns.createdAt).toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric' });
+    const item = document.createElement('div');
+    item.className = 'noteset-item';
+    item.style.borderColor = c.border;
+    item.innerHTML = `
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+          <span class="badge" style="background:${c.badge};color:${c.badgeText}">${ns.subject}</span>
+          <span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ns.analysis.topic)}</span>
+        </div>
+        <p style="font-size:.75rem;color:#94a3b8">${date}</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn-sm" style="background:${c.bg};color:#fff" onclick="startTestFromSet('${ns.id}')">問題を解く</button>
+        <button class="btn-sm" style="background:#f1f5f9;color:#475569" onclick="delSet('${ns.id}')">削除</button>
+      </div>`;
+    list.appendChild(item);
+  });
+}
+function delSet(id) { deletePastSet(id); renderPastSets(); }
+function startTestFromSet(id) {
+  const ns = loadPastSets().find(s => s.id === id);
+  if (!ns) return;
+  state.analysis = ns.analysis; state.questions = ns.questions; state.subject = ns.subject;
+  startTest();
+}
+
+// ===== 分析結果画面 =====
+function renderAnalysisScreen() {
+  const a = state.analysis;
+  const c = SUBJECT_COLORS[a.subject];
+  const hdr = document.getElementById('analysisHeader');
+  hdr.style.background = c.light; hdr.style.borderColor = c.border;
+  hdr.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span class="badge" style="background:${c.badge};color:${c.badgeText}">${a.subject}</span>
+      <span style="font-size:1.1rem;font-weight:700">${esc(a.topic)}</span>
+    </div>
+    <p style="font-size:.9rem;color:#475569">${esc(a.summary)}</p>`;
+  renderKPList();
+  const fl = document.getElementById('formulasList');
+  if (a.formulas && a.formulas.length) {
+    fl.innerHTML = a.formulas.map(f => `<div>${esc(f)}</div>`).join('');
+    document.getElementById('formulasSection').style.display = '';
+  } else {
+    document.getElementById('formulasSection').style.display = 'none';
+  }
+}
+
+function renderKPList() {
+  const list = document.getElementById('kpList');
+  list.innerHTML = '';
+  const LK = { 高:'color:#dc2626;background:#fee2e2', 中:'color:#ca8a04;background:#fef9c3', 低:'color:#64748b;background:#f1f5f9' };
+  state.analysis.keyPoints.forEach((kp, i) => {
+    const div = document.createElement('div'); div.className = 'card';
+    div.innerHTML = `
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <input class="kp-term" value="${esc(kp.term)}" placeholder="用語・概念名" oninput="state.analysis.keyPoints[${i}].term=this.value" style="flex:1">
+        <span class="badge" style="${LK[kp.examLikelihood]}">出題${kp.examLikelihood}</span>
+      </div>
+      <textarea class="kp-exp" rows="2" placeholder="説明" oninput="state.analysis.keyPoints[${i}].explanation=this.value">${esc(kp.explanation)}</textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:.75rem;color:#64748b">出題可能性:</span>
+          ${['高','中','低'].map(l=>`<button class="lbtn${kp.examLikelihood===l?' active':''}" data-l="${l}" onclick="setLK(${i},'${l}')">${l}</button>`).join('')}
+        </div>
+        <button onclick="deleteKP(${i})" style="font-size:.75rem;color:#f87171;background:none;border:none;cursor:pointer">削除</button>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+function setLK(i, l) { state.analysis.keyPoints[i].examLikelihood = l; renderKPList(); }
+function deleteKP(i) { state.analysis.keyPoints.splice(i, 1); renderKPList(); }
+function addKP() { state.analysis.keyPoints.push({ term:'', explanation:'', examLikelihood:'中' }); renderKPList(); }
+
+// ===== テスト画面 =====
+function startTest() {
+  state.activeIndices = state.questions.map((_, i) => i);
+  state.activeCurrent = 0;
+  state.answers = state.questions.map(() => ({ status:'unanswered', correct:false, userAnswer:'' }));
+  showScreen('test');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const qi = state.activeIndices[state.activeCurrent];
+  const q = state.questions[qi];
+  const total = state.activeIndices.length;
+  const cur = state.activeCurrent;
+  const c = SUBJECT_COLORS[state.subject];
+  document.getElementById('qProgress').textContent = `${cur + 1} / ${total} 問`;
+  const tb = document.getElementById('qTypeBadge');
+  tb.textContent = q.type; tb.style.background = c.badge; tb.style.color = c.badgeText;
+  document.getElementById('progressFill').style.width = `${(cur / total) * 100}%`;
+  document.getElementById('progressFill').style.background = c.bg;
+  document.getElementById('questionText').textContent = q.question;
+  document.getElementById('choicesArea').innerHTML = '';
+  document.getElementById('inputArea').style.display = 'none';
+  document.getElementById('modelAnswerArea').style.display = 'none';
+  document.getElementById('judgeBox').style.display = 'none';
+  document.getElementById('nextBtn').style.display = 'none';
+  document.getElementById('answerInput').value = '';
+  if (q.type === '選択式') {
+    q.choices.forEach(ch => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn'; btn.textContent = ch;
+      btn.onclick = () => answerChoice(ch);
+      document.getElementById('choicesArea').appendChild(btn);
+    });
+  } else {
+    document.getElementById('inputArea').style.display = '';
+  }
+}
+
+function answerChoice(choice) {
+  const qi = state.activeIndices[state.activeCurrent];
+  const q = state.questions[qi];
+  const correct = choice === q.answer;
+  state.answers[qi] = { status:'answered', correct, userAnswer: choice };
+  document.querySelectorAll('.choice-btn').forEach(btn => {
+    btn.disabled = true;
+    if (btn.textContent === q.answer) btn.classList.add('correct');
+    else if (btn.textContent === choice && !correct) btn.classList.add('wrong');
+    else btn.classList.add('missed');
+  });
+  showJudge(correct, q.explanation);
+}
+
+function showModelAnswer() {
+  const qi = state.activeIndices[state.activeCurrent];
+  const q = state.questions[qi];
+  document.getElementById('modelAnswerText').textContent = q.answer;
+  const ua = document.getElementById('answerInput').value;
+  state.curUserAnswer = ua;
+  if (ua) { document.getElementById('userAnswerText').textContent = ua; document.getElementById('userAnswerBox').style.display = ''; }
+  else { document.getElementById('userAnswerBox').style.display = 'none'; }
+  document.getElementById('inputArea').style.display = 'none';
+  document.getElementById('modelAnswerArea').style.display = '';
+}
+
+function selfJudge(correct) {
+  const qi = state.activeIndices[state.activeCurrent];
+  const q = state.questions[qi];
+  state.answers[qi] = { status:'answered', correct, userAnswer: state.curUserAnswer };
+  document.getElementById('modelAnswerArea').style.display = 'none';
+  showJudge(correct, q.explanation);
+}
+
+function showJudge(correct, explanation) {
+  const box = document.getElementById('judgeBox');
+  box.className = 'explanation ' + (correct ? 'correct' : 'wrong');
+  box.innerHTML = `<p style="font-weight:700;margin-bottom:6px">${correct ? '✅ 正解！' : '❌ 不正解'}</p><p style="font-size:.9rem">${esc(explanation)}</p>`;
+  box.style.display = '';
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.style.display = '';
+  nextBtn.style.background = SUBJECT_COLORS[state.subject].bg;
+  nextBtn.textContent = state.activeCurrent + 1 >= state.activeIndices.length ? '結果を見る 🎉' : '次の問題へ →';
+}
+
+function nextQuestion() {
+  state.activeCurrent++;
+  if (state.activeCurrent >= state.activeIndices.length) { showResult(); return; }
+  renderQuestion();
+}
+
+function showResult() {
+  const correct = state.answers.filter(a => a.correct).length;
+  const total = state.questions.length;
+  const c = SUBJECT_COLORS[state.subject];
+  const box = document.getElementById('resultScoreBox');
+  box.style.background = c.light; box.style.border = `2px solid ${c.border}`;
+  box.innerHTML = `<p class="score-num">${correct} / ${total}</p><p style="font-size:1.1rem;font-weight:600;margin-top:8px;color:#475569">正解</p>`;
+  const wrongQs = state.questions.filter((_, i) => !state.answers[i].correct);
+  const wl = document.getElementById('wrongList');
+  wl.innerHTML = '';
+  if (wrongQs.length) {
+    document.getElementById('wrongListSection').style.display = '';
+    wrongQs.forEach(q => {
+      const div = document.createElement('div');
+      div.style.cssText = 'background:#fff;border:1px solid #fecaca;border-radius:12px;padding:16px';
+      div.innerHTML = `<p style="font-weight:600;font-size:.9rem;color:#dc2626;margin-bottom:4px">${esc(q.question)}</p><p style="font-size:.85rem;color:#475569">正解: <strong>${esc(q.answer)}</strong></p><p style="font-size:.8rem;color:#64748b;margin-top:4px">${esc(q.explanation)}</p>`;
+      wl.appendChild(div);
+    });
+    document.getElementById('retryBtn').style.display = '';
+  } else {
+    document.getElementById('wrongListSection').style.display = 'none';
+    document.getElementById('retryBtn').style.display = 'none';
+  }
+  showScreen('result');
+  renderPastSets();
+}
+
+function startRetry() {
+  const wi = state.questions.map((_, i) => i).filter(i => !state.answers[i].correct);
+  if (!wi.length) return;
+  wi.forEach(i => { state.answers[i] = { status:'unanswered', correct:false, userAnswer:'' }; });
+  state.activeIndices = wi; state.activeCurrent = 0;
+  showScreen('test'); renderQuestion();
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
